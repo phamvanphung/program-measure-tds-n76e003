@@ -9,6 +9,8 @@ extern int time_task_1;
 extern int time_manage_read_tsd ;
 extern int time_resolve_current ;
 extern int time_general_program;
+extern int time_wash_valve ;
+extern int time_test_pwm;
 void Timer3_ISR (void) interrupt 16 
 {
 	clr_TF3;
@@ -87,6 +89,7 @@ void all_task_timer_step(void)
 		time_manage_read_tsd = time_manage_read_tsd + 1;
 		time_resolve_current = time_resolve_current + 1;
 		time_general_program = time_general_program+ 1;
-		P10 = ~P10;
+		time_wash_valve =  time_wash_valve  + 1;
+		time_test_pwm = time_test_pwm + 1;
 }
 

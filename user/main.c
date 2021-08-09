@@ -21,6 +21,7 @@ int main (void)
 	while(true)
 	{
 		task_1();
+		task_test_pwm();
 	}
 	return 0;
 }

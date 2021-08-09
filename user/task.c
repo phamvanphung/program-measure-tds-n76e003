@@ -10,10 +10,14 @@
 
 bit FLAT_TSD_1 = false;
 bit FLAT_TSD_2 = false;
+bit FLAT_POWER = true;
+bit FLAT_MOTOR = true;
 int time_task_1 = 0;
 int time_manage_read_tsd = 0;
 int time_resolve_current = 0;
 int time_general_program = 0;
+int time_wash_valve = 0;
+int time_test_pwm = 0;
 
 char count_tsd_1 = 0;
 char count_tsd_2 = 0;
@@ -262,18 +266,20 @@ void task_general_program(void)
 	{
 		case 1:
 		{
-			// power on 90% PWM
+			// power on flat
+			FLAT_POWER = on;
 			// wait motor run
 			if(adc_avr_current > ADC_CURRENT_NO_LOAD)
 			{
 				step_general_program = 2;
 				time_general_program = 0;
+				FLAT_MOTOR = on;
 			}
 			break;
 		}
 		case 2:
 		{
-			// check curent if motor no run : step_general_program = 1; 
+			// check curent if motor no run : step_general_program = 1;
 			if(adc_avr_current <= ADC_CURRENT_NO_LOAD)
 			{
 				step_general_program = 1;
@@ -286,13 +292,14 @@ void task_general_program(void)
 				step_general_program = 3;
 				// check current to find error 
 				// power off PWM
+				FLAT_POWER = off;
+				FLAT_MOTOR = off;
 			}
 			break;
 		}
 		case 3:
 		{
 			// set flat error
-			
 			// wait 30 minue
 			if(time_general_program >= 3600)
 			{
@@ -300,7 +307,9 @@ void task_general_program(void)
 				step_general_program = 4;
 				// clr flat error
 				
-				// power on 90% PWM
+				// power on flat
+				FLAT_MOTOR = on;
+				FLAT_POWER = on;
 			}
 			break;
 		}
@@ -319,6 +328,8 @@ void task_general_program(void)
 				step_general_program = 5;
 				// check current to find error 
 				// power off PWM
+				FLAT_MOTOR = off;
+				FLAT_POWER = off;
 			}
 			break;
 		}
@@ -331,7 +342,9 @@ void task_general_program(void)
 				time_general_program = 0;
 				step_general_program = 6;
 				// clr flat error
-				// power on 90% PWM
+				// power on flat
+				FLAT_MOTOR = on;
+				FLAT_POWER = on;
 			}
 			break;
 		}
@@ -350,6 +363,8 @@ void task_general_program(void)
 				step_general_program = 7;
 				// check current to find error 
 				// power off PWM
+				FLAT_MOTOR = off;
+				FLAT_POWER = off;
 				// ALWAYS OFF - ANNOUNCE ERROR
 			}
 			break;
@@ -358,6 +373,273 @@ void task_general_program(void)
 	}
 }
 
+void task_wash_valve(void)
+{
+	static char step_wash_valve = 1;
+	static int time_motor_runned = 0;
+	switch (step_wash_valve)
+	{
+		case 1:
+		{
+			if(FLAT_MOTOR == on) 
+			{
+				step_wash_valve = 2;
+				time_wash_valve = time_motor_runned ; 
+				TRAN = off;
+			}
+			break;
+		}
+		case 2:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0 ;
+			}
+			time_motor_runned = time_wash_valve;
+			if(time_wash_valve > 2400)
+			{
+				time_motor_runned = 0;
+				// if(mod_wash_one)
+				step_wash_valve = 31; 		// on valve 10s seconcd times
+				time_wash_valve = 0;
+				TRAN = on;
+				// else if(mod_wash_two)
+				step_wash_valve = 32;			// on valve 10s fourth times
+				time_wash_valve = 0;
+				TRAN = on;
+			}
+			break;
+		}
+		case 31:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if(time_wash_valve >= 20)
+			{
+				step_wash_valve = 41;
+				time_wash_valve = 0;
+				TRAN = off;
+			}
+			break;
+		}
+		case 32:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if(time_wash_valve >= 20)
+			{
+				step_wash_valve = 42;
+				time_wash_valve = 0;
+				TRAN = off;
+			}
+			break;
+		}
+		case 41:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if((time_wash_valve >= 150)||(adc_avr_current >= ADC_CURRENT_WASH))
+			{
+				step_wash_valve = 51;
+				time_wash_valve = 0;
+				TRAN = on;
+			}
+			break;
+		}
+		case 42:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if((time_wash_valve >= 150)||(adc_avr_current >= ADC_CURRENT_WASH))
+			{
+				step_wash_valve = 52;
+				time_wash_valve = 0;
+				TRAN = on;
+			}
+			break;
+		}
+		case 51:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if(time_wash_valve >= 20)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+				TRAN = off;
+			}
+			break;
+		}
+		case 52:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if(time_wash_valve >= 20)
+			{
+				step_wash_valve = 62;
+				time_wash_valve = 0;
+				TRAN = off;
+			}
+			break;
+		}
+		case 62:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if((time_wash_valve >= 150)||(adc_avr_current >= ADC_CURRENT_WASH))
+			{
+				step_wash_valve = 72;
+				time_wash_valve = 0;
+				TRAN = on;
+			}
+			break;
+		}
+		case 72:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if(time_wash_valve >= 20)
+			{
+				step_wash_valve = 82;
+				time_wash_valve = 0;
+				TRAN = off;
+			}
+			break;
+		}
+		case 82:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if((time_wash_valve >= 150)||(adc_avr_current >= ADC_CURRENT_WASH))
+			{
+				step_wash_valve = 92;
+				time_wash_valve = 0;
+				TRAN = on;
+			}
+			break;
+		}
+		case 92:
+		{
+			if(FLAT_MOTOR == off)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+			}
+			if(time_wash_valve >= 20)
+			{
+				step_wash_valve = 1;
+				time_wash_valve = 0;
+				TRAN = off;
+			}
+			break;
+		}
+	}
+}
+
+/**********************************************************************
+	PWM frequency = Fpwm/((PWMPH,PWMPL) + 1) < Fpwm = Fsys/PWM_CLOCK_DIV> 
+								= (16MHz/8)/(0x7CF + 1)
+								= 1KHz (1ms)
+***********************************************************************/
+void task_test_pwm(void)
+{
+	static char step_test_pwm = 1;
+	switch(step_test_pwm)
+	{
+		case 1:
+		{
+			PWM_CLOCK_FSYS;
+			MOTOR_ON;
+			PWM_IMDEPENDENT_MODE;
+			PWM_CLOCK_DIV_8;
+			PWMPH = 0x00;
+			PWMPL = 0x64;	
+			PWM2H = 0x00;						
+			PWM2L = 0x5A;
+			set_LOAD;
+			set_PWMRUN;
+			time_test_pwm = 0;
+			step_test_pwm = 2;
+			break;
+		}
+		case 2:
+		{
+			if(time_test_pwm >= 6)
+			{
+				PWM2H = 0x00;						
+				PWM2L = 0x00;
+				set_LOAD;
+				time_test_pwm = 0;
+				step_test_pwm = 3;
+			}
+			break;
+		}
+		case 3:
+		{
+			if(time_test_pwm >= 4)
+			{
+				PWM2H = 0x00;						
+				PWM2L = 0x32;
+				set_LOAD;
+				time_test_pwm = 0;
+				step_test_pwm = 4;
+			}
+			break;
+		}
+		case 4:
+		{
+			if(time_test_pwm >= 4)
+			{
+				MOTOR_OFF;
+				time_test_pwm = 0;
+				step_test_pwm = 5;
+			}
+			break;
+		}
+		case 5:
+		{
+			if(time_test_pwm >= 2)
+			{
+				MOTOR_ON;
+				PWM2H = 0x00;						
+				PWM2L = 0x60;
+				set_LOAD;
+				time_test_pwm = 0;
+				step_test_pwm = 2;
+			}
+			
+		}
+		break;
+	}
+}
 void set_value_kalman_filter(void)
 {
 	current.measure_e = 1;
@@ -383,6 +665,17 @@ void set_value_kalman_filter(void)
 	tsd_2_kalman.measure_e = 1;
 	tsd_2_kalman.estimate_e = 1;
 	tsd_2_kalman.q = 0.001;
+}
+
+void motor_off()
+{
+	PWM2_P10_OUTPUT_DISABLE;
+	P10 = off;
+}
+
+void motor_on()
+{
+	PWM2_P10_OUTPUT_ENABLE;
 }
 
 

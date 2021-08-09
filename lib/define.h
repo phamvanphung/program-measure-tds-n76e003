@@ -31,4 +31,8 @@
 
 #define ADC_CURRENT_NO_LOAD  123
 #define ADC_CURRENT_OVER_LOAD  789
+#define ADC_CURRENT_WASH 	567
+
+#define MOTOR_OFF		motor_off()
+#define MOTOR_ON		motor_on()
 
