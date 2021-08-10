@@ -421,6 +421,11 @@
               <FileType>1</FileType>
               <FilePath>.\lib\simplekalman.c</FilePath>
             </File>
+            <File>
+              <FileName>Tm1638.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\lib\Tm1638.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

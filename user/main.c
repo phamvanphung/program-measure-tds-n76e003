@@ -1,4 +1,4 @@
-#include <stdio.h>
+
 #include "N76E003.h"
 #include "Common.h"
 #include "SFR_Macro.h"

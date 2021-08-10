@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "N76E003.h"
 #include "Common.h"
 #include "SFR_Macro.h"
@@ -7,17 +6,30 @@
 #include "task.h"
 #include "define.h"
 #include "simplekalman.h"
+#include "Tm1638.h"
 
 bit FLAT_TSD_1 = false;
 bit FLAT_TSD_2 = false;
 bit FLAT_POWER = true;
 bit FLAT_MOTOR = true;
+bit FLAT_ERROR = false;
+bit mod	= MOD_FIRST;
+bit mod_wash = MOD_WASH_TWO;		
+bit first_read_tsd = true;
 int time_task_1 = 0;
 int time_manage_read_tsd = 0;
 int time_resolve_current = 0;
 int time_general_program = 0;
 int time_wash_valve = 0;
 int time_test_pwm = 0;
+int time_control_power_pwm = 0 ;
+int time_error_over_load_current = 0;
+int time_count_time_mineral = 0;
+int time_mineral_1_10p = 0;
+int time_mineral_2_10p = 0;
+int time_mineral_3_10p = 0;
+int time_show_led_light = 0;
+int time_show_led_tsd = 0;
 
 char count_tsd_1 = 0;
 char count_tsd_2 = 0;
@@ -26,6 +38,7 @@ uint16_t array_current_kalman_adc[10];
 uint16_t array_volt_out_kalman_adc[10];
 uint32_t array_tsd_1_adc_kalman[10];
 uint32_t array_tsd_2_adc_kalman[10];
+
 _kalman current;
 _kalman volt_out;
 _kalman tsd_1_volt;
@@ -34,6 +47,12 @@ _kalman tsd_1_kalman;
 _kalman tsd_2_kalman;
 
 int adc_avr_current = 0;
+int adc_max_current = 0;
+char number_error = 0;
+
+float value_tsd_1 = 0;
+float value_tsd_2 = 0;
+
 
 /*
 example task: 
@@ -111,13 +130,13 @@ void task_read_all_adc(void)
 	current_moment_adc = ADCRH << 4| ADCRL;
 	Disable_ADC;
 	array_current_kalman_adc[count_current] = update_measure_kalman(&current,(float) current_moment_adc);
-	if(array_current_kalman_adc[count_current] >= ADC_CURRENT_OVER_LOAD)		// check_short_circuit
+	if(array_current_kalman_adc[count_current] >= ADC_CURRENT_SHORT_CIRCUIT)		// check_short_circuit
 	{
-		// OFF POWER- Anounce ERROR
+		task_off_water_purifier_endless();
 	}
 	count_current = count_current + 1;
 	if(count_current >= 10) count_current = 0;
-	// read volt to control pwm second
+	// read volt to control pwm 
 	Enable_ADC_Vout_PWM;
 	clr_ADCF;
 	set_ADCS;
@@ -180,7 +199,6 @@ void task_read_all_adc(void)
 
 void task_init_all_gpio(void)
 {
-	Enable_FET;
 	Enable_TRAN;
 	Enable_STB;
 	Enable_CLK;
@@ -188,7 +206,6 @@ void task_init_all_gpio(void)
 	Enable_TSD_1;
 	Enable_TSD_2;
 	
-	FET = off;
 	TRAN = off;
 	TSD_1 = off;
 	TSD_2 = off;
@@ -215,7 +232,7 @@ void task_manage_read_tsd(void)
 				// reset count_tsd_1
 				count_tsd_1 = 0;
 			}
-			if(time_manage_read_tsd >= 360)
+			if(time_manage_read_tsd >= 360)					// between 2 time is 3 minnue
 			{
 				step_manage_read_tsd = 3;
 				time_manage_read_tsd = 0;
@@ -229,10 +246,11 @@ void task_manage_read_tsd(void)
 			{
 				// caculator TSD 1 to show LED 
 				
+				first_read_tsd  = false;
 				// reset count_tsd_2
 				count_tsd_2 = 0;
 			}
-			if(time_manage_read_tsd >= 360)
+			if(time_manage_read_tsd >= 2)
 			{
 				step_manage_read_tsd = 1;
 				time_manage_read_tsd = 0;
@@ -244,9 +262,8 @@ void task_manage_read_tsd(void)
 
 void task_resolve_current(void)
 {
-	static int pre_time_resolve_current = 0;
 	static char j;
-	if( time_resolve_current == (pre_time_resolve_current + 2))
+	if( time_resolve_current >= 2)
 	{
 		// caculator curruent
 		int sum_current = 0;
@@ -255,10 +272,106 @@ void task_resolve_current(void)
 			sum_current = sum_current + array_current_kalman_adc[j];
 			adc_avr_current = sum_current / 10;
 		}
-		pre_time_resolve_current = time_resolve_current;
+		if(adc_avr_current >= adc_max_current) 
+		{
+			adc_max_current = adc_avr_current;
+		}
+		time_resolve_current = 0;
 	}
 }
 
+/*****************************************
+number_error : 1 - don't have water input
+number_error : 2 - Vane output broken
+number_error : 3 - Vane was narrow
+number_error : 4 - over load
+number_error : 5 - short circuit
+******************************************/
+void task_check_error_current()
+{
+	
+	if((adc_max_current >= ADC_CURRENT_NO_LOAD )&&(adc_max_current < ADC_CURRENT_HAVE_WATER))
+	{
+		number_error = 1;
+	}
+	else if((adc_max_current >= ADC_CURRENT_HAVE_WATER)&&(adc_max_current < ADC_CURRENT_NARROW_VANE	))
+	{
+		number_error = 2;
+	}
+	else if((adc_max_current >= ADC_CURRENT_NARROW_VANE	)&&(adc_max_current < ADC_CURRENT_OVER_LOAD))
+	{
+		number_error = 3;
+	}
+}
+
+void task_error_over_load_current()
+{
+	static char step_error_over_load_current = 1;
+	switch (step_error_over_load_current)
+	{
+		case 1:
+		{
+			if((time_error_over_load_current >= 4)&&(adc_avr_current >= ADC_CURRENT_OVER_LOAD))
+			{
+				step_error_over_load_current = 2;
+				time_error_over_load_current = 0;
+			}
+			break;
+		}
+		case 2:
+		{
+			
+			if(time_error_over_load_current >= TIME_OVER_LOAD)
+			{
+				if(adc_avr_current >= ADC_CURRENT_OVER_LOAD)
+				{
+					step_error_over_load_current = 3;
+					time_error_over_load_current = 0;
+				}
+				else
+				{
+					step_error_over_load_current = 1;
+					time_error_over_load_current = 0;
+				}
+			}
+			break;
+			
+		}
+		case 3:
+		{
+			if(time_error_over_load_current >= TIME_OVER_LOAD)
+			{
+				if(adc_avr_current >= ADC_CURRENT_OVER_LOAD)
+				{
+					step_error_over_load_current = 4;
+					time_error_over_load_current = 0;
+				}
+				else
+				{
+					step_error_over_load_current = 1;
+					time_error_over_load_current = 0;
+				}
+			}
+			break;
+		}
+		case 4:
+		{
+			if(time_error_over_load_current >= TIME_OVER_LOAD)
+			{
+				if(adc_avr_current >= ADC_CURRENT_OVER_LOAD)
+				{
+					task_off_water_purifier_endless();
+				}
+				else
+				{
+					step_error_over_load_current = 1;
+					time_error_over_load_current = 0;
+				}
+			}
+			break;
+		}
+	}
+}
 void task_general_program(void)
 {
 	static char step_general_program = 1;
@@ -268,6 +381,7 @@ void task_general_program(void)
 		{
 			// power on flat
 			FLAT_POWER = on;
+			FLAT_ERROR = false;
 			// wait motor run
 			if(adc_avr_current > ADC_CURRENT_NO_LOAD)
 			{
@@ -286,11 +400,14 @@ void task_general_program(void)
 				time_general_program = 0;
 			}
 			// wait 90 minue
-			if(time_general_program >= 7200)
+			if(time_general_program >= TIME_PROTECT_ON)
 			{
 				time_general_program = 0;
 				step_general_program = 3;
+				// set flat error
+				FLAT_ERROR = true;
 				// check current to find error 
+				task_check_error_current();
 				// power off PWM
 				FLAT_POWER = off;
 				FLAT_MOTOR = off;
@@ -299,14 +416,14 @@ void task_general_program(void)
 		}
 		case 3:
 		{
-			// set flat error
+			
 			// wait 30 minue
-			if(time_general_program >= 3600)
+			if(time_general_program >= TIME_PROTECT_OFF)
 			{
 				time_general_program = 0;
 				step_general_program = 4;
 				// clr flat error
-				
+				FLAT_ERROR = false;
 				// power on flat
 				FLAT_MOTOR = on;
 				FLAT_POWER = on;
@@ -322,11 +439,14 @@ void task_general_program(void)
 				time_general_program = 0;
 			}
 			// wait 90 minue
-			if(time_general_program >= 7200)
+			if(time_general_program >= TIME_PROTECT_ON)
 			{
 				time_general_program = 0;
 				step_general_program = 5;
+				// set flat error
+				FLAT_ERROR = true;
 				// check current to find error 
+				task_check_error_current();
 				// power off PWM
 				FLAT_MOTOR = off;
 				FLAT_POWER = off;
@@ -335,13 +455,13 @@ void task_general_program(void)
 		}
 		case 5:
 		{
-			// set flat error
 			// wait 30 minue
-			if(time_general_program >= 3600)
+			if(time_general_program >= TIME_PROTECT_OFF)
 			{
 				time_general_program = 0;
 				step_general_program = 6;
 				// clr flat error
+				FLAT_ERROR = false;
 				// power on flat
 				FLAT_MOTOR = on;
 				FLAT_POWER = on;
@@ -357,22 +477,29 @@ void task_general_program(void)
 				time_general_program = 0;
 			}
 			// wait 90 minue
-			if(time_general_program >= 7200)
+			if(time_general_program >= TIME_PROTECT_ON)
 			{
 				time_general_program = 0;
 				step_general_program = 7;
-				// check current to find error 
+				// set flat error
+				FLAT_ERROR = true;
+				// check current to find error
+				task_check_error_current();
 				// power off PWM
 				FLAT_MOTOR = off;
 				FLAT_POWER = off;
 				// ALWAYS OFF - ANNOUNCE ERROR
+				task_off_water_purifier_endless();
 			}
 			break;
 		}
 		
 	}
 }
-
+/*
+	mod_wash : 0 - run mod_wash_one
+	mod_wash : 1 - run mod_wash_two
+*/
 void task_wash_valve(void)
 {
 	static char step_wash_valve = 1;
@@ -397,7 +524,7 @@ void task_wash_valve(void)
 				time_wash_valve = 0 ;
 			}
 			time_motor_runned = time_wash_valve;
-			if(time_wash_valve > 2400)
+			if(time_wash_valve >= TIME_WAIT_TO_WASH)
 			{
 				time_motor_runned = 0;
 				// if(mod_wash_one)
@@ -577,7 +704,7 @@ void task_test_pwm(void)
 		case 1:
 		{
 			PWM_CLOCK_FSYS;
-			MOTOR_ON;
+			POWER_ON;
 			PWM_IMDEPENDENT_MODE;
 			PWM_CLOCK_DIV_8;
 			PWMPH = 0x00;
@@ -618,7 +745,7 @@ void task_test_pwm(void)
 		{
 			if(time_test_pwm >= 4)
 			{
-				MOTOR_OFF;
+				POWER_OFF;
 				time_test_pwm = 0;
 				step_test_pwm = 5;
 			}
@@ -628,7 +755,7 @@ void task_test_pwm(void)
 		{
 			if(time_test_pwm >= 2)
 			{
-				MOTOR_ON;
+				POWER_ON;
 				PWM2H = 0x00;						
 				PWM2L = 0x60;
 				set_LOAD;
@@ -638,6 +765,60 @@ void task_test_pwm(void)
 			
 		}
 		break;
+	}
+}
+
+void task_init_pwm(void)
+{
+	PWM_CLOCK_FSYS;
+	PWM_IMDEPENDENT_MODE;
+	POWER_OFF;
+	PWM_CLOCK_DIV_8;
+	PWMPH = 0x00;
+	PWMPL = 0x64;
+	PWMH = 0x00;						
+	PWML = 0x46;
+	set_LOAD;
+	set_PWMRUN;
+}
+
+
+void task_control_power_pwm(void)
+{
+	static char count = 0;
+	static int adc_fb_volt = 0;
+	static uint32_t DEC_PWM = 0;
+	static int pre_time = 0;
+	if(pre_time != time_control_power_pwm)
+	{
+		for(count = 0; count<10;count++)
+		{
+			adc_fb_volt = adc_fb_volt + array_volt_out_kalman_adc[count];
+		}
+		adc_fb_volt = adc_fb_volt / 10;
+		if((adc_fb_volt >= 0)&&(adc_fb_volt < ADC_POWER_25V))
+		{
+			DEC_PWM = 98;
+			PWMH = 0x00;
+			PWML = DEC_PWM;
+			set_LOAD;
+		}
+		else if((adc_fb_volt >= ADC_POWER_25V)&&(adc_fb_volt < 4095))
+		{
+			DEC_PWM =  DEC_PWM * ADC_POWER_24V / adc_fb_volt;
+			PWMH = 0x00;
+			PWML = DEC_PWM;
+			set_LOAD;
+		}
+		if(FLAT_POWER == on)
+		{
+			POWER_ON;
+		}
+		else
+		{
+			POWER_OFF;
+		}
+		pre_time = time_control_power_pwm;
 	}
 }
 void set_value_kalman_filter(void)
@@ -667,15 +848,75 @@ void set_value_kalman_filter(void)
 	tsd_2_kalman.q = 0.001;
 }
 
-void motor_off()
+void power_off()
 {
 	PWM2_P10_OUTPUT_DISABLE;
 	P10 = off;
 }
 
-void motor_on()
+void power_on()
 {
 	PWM2_P10_OUTPUT_ENABLE;
+}
+
+void task_off_water_purifier_endless()
+{
+	while(1)
+	{
+		// OFF POWER- Anounce ERROR
+		POWER_OFF;
+		// Disable interup
+		clr_EA;
+		// ANOUNCE LED - SHOW ERROR
+		FLAT_ERROR = true;
+	}
+}
+
+void task_count_time_mineral()
+{
+	if(time_count_time_mineral >= 1200)
+	{
+		if(FLAT_MOTOR == on)
+		{
+			time_mineral_1_10p = time_mineral_1_10p + 1;
+			time_mineral_2_10p = time_mineral_2_10p + 1;
+			time_mineral_3_10p = time_mineral_3_10p + 1;
+		}
+		time_count_time_mineral = 0;
+	}
+}
+
+void task_show_led_tsd()
+{
+	if(time_show_led_tsd > TIME_SHOW_LED_7)
+	{
+		if(first_read_tsd == true)
+		{
+			show_led_tsd_first_time();
+		}
+		else
+		{
+			show_led_tsd();
+		}
+		time_show_led_tsd = 0;
+	}
+	
+}
+
+void task_show_led_light()
+{
+	if(time_show_led_light > TIME_SHOW_LED_LIGHT)
+	{
+		if(first_read_tsd == true)
+		{
+			show_led_tsd_first_time();
+		}
+		else
+		{
+			show_led_light();
+		}
+		time_show_led_light = 0;
+	}
 }
 
 

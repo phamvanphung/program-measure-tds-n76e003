@@ -11,6 +11,11 @@ extern int time_resolve_current ;
 extern int time_general_program;
 extern int time_wash_valve ;
 extern int time_test_pwm;
+extern int time_control_power_pwm ;
+extern int time_error_over_load_current;
+extern int time_count_time_mineral;
+extern int time_show_led_light;
+extern int time_show_led_tsd;
 void Timer3_ISR (void) interrupt 16 
 {
 	clr_TF3;
@@ -91,5 +96,10 @@ void all_task_timer_step(void)
 		time_general_program = time_general_program+ 1;
 		time_wash_valve =  time_wash_valve  + 1;
 		time_test_pwm = time_test_pwm + 1;
+		time_control_power_pwm = time_control_power_pwm + 1;
+		time_error_over_load_current = time_error_over_load_current + 1;
+		time_count_time_mineral = time_count_time_mineral + 1;
+		time_show_led_light = time_show_led_light + 1;
+		time_show_led_tsd = time_show_led_tsd + 1;
 }
 
