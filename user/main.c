@@ -6,7 +6,7 @@
 #include "directer_time.h"
 #include "task.h"
 #include "define.h"
-
+#include "Tm1638.h"
 
 int main (void)
 {
@@ -17,11 +17,14 @@ int main (void)
 	PinGND2 = 0;
 	PinGND1 = 0;
 	P01 = 0;
-
+	init_tm1638();
+	InitialUART0_Timer1(9600);
 	while(true)
 	{
 		task_1();
 		task_test_pwm();
+		task_reset_mineral();
+		task_show_led_light();
 	}
 	return 0;
 }

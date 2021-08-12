@@ -15,24 +15,28 @@ bit FLAT_MOTOR = true;
 bit FLAT_ERROR = false;
 bit mod	= MOD_FIRST;
 bit mod_wash = MOD_WASH_TWO;		
-bit first_read_tsd = true;
-int time_task_1 = 0;
-int time_manage_read_tsd = 0;
-int time_resolve_current = 0;
-int time_general_program = 0;
-int time_wash_valve = 0;
-int time_test_pwm = 0;
-int time_control_power_pwm = 0 ;
-int time_error_over_load_current = 0;
-int time_count_time_mineral = 0;
-int time_mineral_1_10p = 0;
-int time_mineral_2_10p = 0;
-int time_mineral_3_10p = 0;
-int time_show_led_light = 0;
-int time_show_led_tsd = 0;
+bit first_read_tsd = false;
+bit FLAT_reset_led_light = false;
+unsigned int time_task_1 = 0;
+unsigned int time_manage_read_tsd = 0;
+unsigned int time_resolve_current = 0;
+unsigned int time_general_program = 0;
+unsigned int time_wash_valve = 0;
+unsigned int time_test_pwm = 0;
+unsigned int time_control_power_pwm = 0 ;
+unsigned int time_error_over_load_current = 0;
+unsigned int time_count_time_mineral = 0;
+unsigned int time_mineral_1_10p = 0;
+unsigned int time_mineral_2_10p = 0;
+unsigned int time_mineral_3_10p = 0;
+unsigned int time_show_led_light = 0;
+unsigned int time_show_led_tsd = 0;
+unsigned int time_reset_mineral = 0;
 
-char count_tsd_1 = 0;
-char count_tsd_2 = 0;
+unsigned char count_tsd_1 = 0;
+unsigned char count_tsd_2 = 0;
+unsigned char count_mineral_reset = 0;
+
 
 uint16_t array_current_kalman_adc[10];
 uint16_t array_volt_out_kalman_adc[10];
@@ -46,9 +50,9 @@ _kalman tsd_2_volt;
 _kalman tsd_1_kalman;
 _kalman tsd_2_kalman;
 
-int adc_avr_current = 0;
-int adc_max_current = 0;
-char number_error = 0;
+unsigned int adc_avr_current = 0;
+unsigned int adc_max_current = 0;
+unsigned char number_error = 0;
 
 float value_tsd_1 = 0;
 float value_tsd_2 = 0;
@@ -63,8 +67,8 @@ step 3: all led on in 5s. after goto step 1
 */
 void task_1(void)
 {
-	static char step_task_1 = 1;
-	static int time_blink = 0;
+	static unsigned char step_task_1 = 1;
+	static unsigned int time_blink = 0;
 	switch (step_task_1)
 	{
 		case 1:
@@ -109,18 +113,18 @@ void task_1(void)
 
 void task_read_all_adc(void)
 {
-	static char count_current ;
-  int current_moment_adc ;
-	static char count_volt_pwm ;
-  int volt_moment_pwm ;
-	int adc_tsd_1_volt ;
-	int adc_tsd_1 = 0;
-  int adc_tsd_1_volt_kalman;
-	int adc_tsd_1_kalman ;
-	int adc_tsd_2_volt ;
-	int adc_tsd_2 = 0;
-  int adc_tsd_2_volt_kalman ;
-	int adc_tsd_2_kalman ;
+	static unsigned char count_current ;
+  unsigned int current_moment_adc =0 ;
+	static unsigned char count_volt_pwm =0;
+  unsigned int volt_moment_pwm =0;
+	unsigned int adc_tsd_1_volt =0;
+	unsigned int adc_tsd_1 = 0;
+  unsigned int adc_tsd_1_volt_kalman =0;
+	unsigned int adc_tsd_1_kalman ;
+	unsigned int adc_tsd_2_volt =0 ;
+	unsigned int adc_tsd_2 = 0;
+  unsigned int adc_tsd_2_volt_kalman =0;
+	unsigned int adc_tsd_2_kalman =0;
 	uint32_t temp = 0;
 	// read current fisrt
 	Enable_ADC_current;
@@ -132,7 +136,8 @@ void task_read_all_adc(void)
 	array_current_kalman_adc[count_current] = update_measure_kalman(&current,(float) current_moment_adc);
 	if(array_current_kalman_adc[count_current] >= ADC_CURRENT_SHORT_CIRCUIT)		// check_short_circuit
 	{
-		task_off_water_purifier_endless();
+		// ALWAYS OFF - ANNOUNCE ERROR
+		 task_off_water_purifier_endless();
 	}
 	count_current = count_current + 1;
 	if(count_current >= 10) count_current = 0;
@@ -213,7 +218,7 @@ void task_init_all_gpio(void)
 
 void task_manage_read_tsd(void)
 {
-	static char step_manage_read_tsd = 1;
+	static unsigned char step_manage_read_tsd = 1;
 	switch(step_manage_read_tsd)
 	{
 		case 1:
@@ -262,11 +267,11 @@ void task_manage_read_tsd(void)
 
 void task_resolve_current(void)
 {
-	static char j;
+	static unsigned char j;
 	if( time_resolve_current >= 2)
 	{
 		// caculator curruent
-		int sum_current = 0;
+		unsigned int sum_current = 0;
 		for(j = 0; j< 10;j++)
 		{
 			sum_current = sum_current + array_current_kalman_adc[j];
@@ -306,7 +311,7 @@ void task_check_error_current()
 
 void task_error_over_load_current()
 {
-	static char step_error_over_load_current = 1;
+	static unsigned char step_error_over_load_current = 1;
 	switch (step_error_over_load_current)
 	{
 		case 1:
@@ -360,7 +365,8 @@ void task_error_over_load_current()
 			{
 				if(adc_avr_current >= ADC_CURRENT_OVER_LOAD)
 				{
-					task_off_water_purifier_endless();
+				// ALWAYS OFF - ANNOUNCE ERROR
+				//	task_off_water_purifier_endless();
 				}
 				else
 				{
@@ -374,7 +380,7 @@ void task_error_over_load_current()
 }
 void task_general_program(void)
 {
-	static char step_general_program = 1;
+	static unsigned char step_general_program = 1;
 	switch(step_general_program)
 	{
 		case 1:
@@ -502,8 +508,8 @@ void task_general_program(void)
 */
 void task_wash_valve(void)
 {
-	static char step_wash_valve = 1;
-	static int time_motor_runned = 0;
+	static unsigned char step_wash_valve = 1;
+	static unsigned int time_motor_runned = 0;
 	switch (step_wash_valve)
 	{
 		case 1:
@@ -698,7 +704,7 @@ void task_wash_valve(void)
 ***********************************************************************/
 void task_test_pwm(void)
 {
-	static char step_test_pwm = 1;
+	static unsigned char step_test_pwm = 1;
 	switch(step_test_pwm)
 	{
 		case 1:
@@ -785,10 +791,10 @@ void task_init_pwm(void)
 
 void task_control_power_pwm(void)
 {
-	static char count = 0;
-	static int adc_fb_volt = 0;
+	static unsigned char count = 0;
+	static unsigned int adc_fb_volt = 0;
 	static uint32_t DEC_PWM = 0;
-	static int pre_time = 0;
+	static unsigned int pre_time = 0;
 	if(pre_time != time_control_power_pwm)
 	{
 		for(count = 0; count<10;count++)
@@ -865,10 +871,11 @@ void task_off_water_purifier_endless()
 	{
 		// OFF POWER- Anounce ERROR
 		POWER_OFF;
-		// Disable interup
+		// Disable unsigned interup
 		clr_EA;
 		// ANOUNCE LED - SHOW ERROR
 		FLAT_ERROR = true;
+		show_led_tsd();
 	}
 }
 
@@ -905,6 +912,7 @@ void task_show_led_tsd()
 
 void task_show_led_light()
 {
+	
 	if(time_show_led_light > TIME_SHOW_LED_LIGHT)
 	{
 		if(first_read_tsd == true)
@@ -913,10 +921,107 @@ void task_show_led_light()
 		}
 		else
 		{
-			show_led_light();
+			if(FLAT_reset_led_light == true)
+			{
+				show_led_light_reset();
+				test_tm1638_led(0x06);
+			}
+			else
+			{
+				show_led_light();
+				test_tm1638_led(0x76);
+			}
 		}
 		time_show_led_light = 0;
 	}
 }
+
+void task_reset_mineral()
+{
+	static uint8_t step_reset_mineral = 1;
+	switch (step_reset_mineral)
+	{
+		case 1:
+		{
+			if((readButtons()&0x01) == 1)
+			{
+				step_reset_mineral = 2;
+				time_reset_mineral = 0;
+				count_mineral_reset = count_mineral_reset + 1;
+				if(count_mineral_reset > 3) count_mineral_reset = 0;
+				if(count_mineral_reset > 0) FLAT_reset_led_light = true;
+				else FLAT_reset_led_light = false;
+			}
+			else
+			{
+				if(time_reset_mineral > 40)
+				{
+					count_mineral_reset = 0;
+				}
+			}
+			break;
+		}
+		case 2:
+		{
+			if((readButtons()&0x01)  == 0)
+			{
+				step_reset_mineral = 3;
+				time_reset_mineral = 0;
+			}
+			break;
+		}
+		case 3:
+		{
+			if((readButtons()&0x01) == 1)
+			{
+				step_reset_mineral = 4;
+				time_reset_mineral = 0;
+			}
+			if(time_reset_mineral > 40)
+			{
+				count_mineral_reset = 0;
+				step_reset_mineral = 1;
+				time_reset_mineral = 0;
+				FLAT_reset_led_light = false;
+			}
+			break;
+		}
+		case 4:
+		{
+			if((readButtons()&0x01) == 1)
+			{
+				if(time_reset_mineral > 6)
+				{
+					if(count_mineral_reset == 1) time_mineral_1_10p = 0;
+					else if(count_mineral_reset == 2) time_mineral_2_10p = 0;
+					else if(count_mineral_reset == 3) time_mineral_3_10p = 0;
+					count_mineral_reset = 0;
+					step_reset_mineral = 5;
+					FLAT_reset_led_light = false;
+				}
+			}
+			else 
+			{
+				step_reset_mineral = 3;
+				time_reset_mineral = 0;
+				count_mineral_reset = count_mineral_reset + 1;
+				if(count_mineral_reset > 3) count_mineral_reset = 0;
+				if(count_mineral_reset > 0 ) FLAT_reset_led_light = true;
+				else FLAT_reset_led_light = false;
+			}
+			break;
+		}
+		case 5:
+		{
+			if((readButtons()&0x01) == 0)
+			{
+				step_reset_mineral = 1;
+				time_reset_mineral = 0;
+			}
+		}
+	}
+}
+
+
 
 

@@ -24,8 +24,8 @@
 #define	Enable_TRAN			P01_PushPull_Mode
 #define	Enable_STB			P02_PushPull_Mode
 #define	Enable_CLK			P03_PushPull_Mode
-#define	Enable_Data_Out	P30_Input_Mode
-#define	Enable_Data_In	P30_PushPull_Mode
+#define	Enable_Data_In	P15_Input_Mode
+#define	Enable_Data_Out	P15_PushPull_Mode
 #define	Enable_TSD_1		P04_PushPull_Mode
 #define	Enable_TSD_2		P05_PushPull_Mode
 
@@ -35,7 +35,7 @@
 #define	TSD_1	P04
 #define	TSD_2	P05
 #define CLK		P03
-#define DIO		P30
+#define DIO		P15
 #define	STB		P02
 
 #define R1_TSD	510
@@ -43,7 +43,7 @@
 #define ADC_CURRENT_NO_LOAD  123
 #define ADC_CURRENT_OVER_LOAD  1200
 #define ADC_CURRENT_WASH 	567
-#define ADC_CURRENT_SHORT_CIRCUIT 2000
+#define ADC_CURRENT_SHORT_CIRCUIT 4095
 
 #define ADC_CURRENT_HAVE_WATER	340
 #define ADC_CURRENT_NARROW_VANE		990
@@ -64,7 +64,7 @@
 #define TIME_NEAR_TIME		42000
 #define TIME_END_TIME			60000
 #define TIME_SHOW_LED_7		3
-#define TIME_SHOW_LED_LIGHT	2
+#define TIME_SHOW_LED_LIGHT	0
 
 #define LIGHT_TSD1			0
 #define LIGHT_TSD2			4

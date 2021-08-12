@@ -19,3 +19,7 @@ void set_value_kalman_filter(void);
 void power_off();
 void power_on();
 void task_off_water_purifier_endless();
+void task_show_led_light();
+void task_show_led_tsd();
+void task_count_time_mineral();
+void task_reset_mineral();

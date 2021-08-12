@@ -5,17 +5,18 @@
 #include "directer_time.h"
 #include "task.h"
 
-extern int time_task_1;
-extern int time_manage_read_tsd ;
-extern int time_resolve_current ;
-extern int time_general_program;
-extern int time_wash_valve ;
-extern int time_test_pwm;
-extern int time_control_power_pwm ;
-extern int time_error_over_load_current;
-extern int time_count_time_mineral;
-extern int time_show_led_light;
-extern int time_show_led_tsd;
+extern unsigned int time_task_1;
+extern unsigned int time_manage_read_tsd ;
+extern unsigned int time_resolve_current ;
+extern unsigned int time_general_program;
+extern unsigned int time_wash_valve ;
+extern unsigned int time_test_pwm;
+extern unsigned int time_control_power_pwm ;
+extern unsigned int time_error_over_load_current;
+extern unsigned int time_count_time_mineral;
+extern unsigned int time_show_led_light;
+extern unsigned int time_show_led_tsd;
+extern unsigned int time_reset_mineral;
 void Timer3_ISR (void) interrupt 16 
 {
 	clr_TF3;
@@ -29,7 +30,6 @@ void Timer0_ISR (void) interrupt 1
 	TH0 = 0xCB;
 	TL0 = 0xEA;
 	task_read_all_adc();
-	P00 = ~P00;
 }
 
 
@@ -101,5 +101,6 @@ void all_task_timer_step(void)
 		time_count_time_mineral = time_count_time_mineral + 1;
 		time_show_led_light = time_show_led_light + 1;
 		time_show_led_tsd = time_show_led_tsd + 1;
+		time_reset_mineral = time_reset_mineral + 1;
 }
 
