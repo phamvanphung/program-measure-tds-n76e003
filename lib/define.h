@@ -80,6 +80,9 @@
 #define TSD_MINERAL_HIGH	70
 
 
+#define paramater_A		1
+#define paramater_d		1
+
 
 
 

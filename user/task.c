@@ -58,6 +58,7 @@ float value_tsd_1 = 0;
 float value_tsd_2 = 0;
 
 
+
 /*
 example task: 
 task control 2 led:
@@ -233,7 +234,7 @@ void task_manage_read_tsd(void)
 			if(count_tsd_1 > 9)
 			{
 				// caculator TSD 1 to show LED 
-				
+				value_tsd_1 = caculate_tsd(array_tsd_1_adc_kalman[10]);
 				// reset count_tsd_1
 				count_tsd_1 = 0;
 			}
@@ -250,7 +251,7 @@ void task_manage_read_tsd(void)
 			if(count_tsd_2 > 9)
 			{
 				// caculator TSD 1 to show LED 
-				
+				value_tsd_1 = caculate_tsd(array_tsd_2_adc_kalman[10]);
 				first_read_tsd  = false;
 				// reset count_tsd_2
 				count_tsd_2 = 0;
@@ -263,6 +264,20 @@ void task_manage_read_tsd(void)
 			break;
 		}
 	}
+}
+
+float caculate_tsd(uint32_t array[])
+{
+	static float r2_f = 0;
+	static float tsd = 0;
+	static uint8_t c = 0;
+	for(c = 0;c < 10; c++)
+	{
+		r2_f = r2_f + array[c];
+	}
+	r2_f = r2_f / 10.0;
+	tsd = (1.0 / r2_f)*(paramater_A / paramater_d);
+	return tsd;
 }
 
 void task_resolve_current(void)
@@ -533,14 +548,18 @@ void task_wash_valve(void)
 			if(time_wash_valve >= TIME_WAIT_TO_WASH)
 			{
 				time_motor_runned = 0;
-				// if(mod_wash_one)
-				step_wash_valve = 31; 		// on valve 10s seconcd times
-				time_wash_valve = 0;
-				TRAN = on;
-				// else if(mod_wash_two)
-				step_wash_valve = 32;			// on valve 10s fourth times
-				time_wash_valve = 0;
-				TRAN = on;
+				if(mod_wash == MOD_WASH_ONE)
+				{
+					step_wash_valve = 31; 		// on valve 10s seconcd times
+					time_wash_valve = 0;
+					TRAN = on;
+				}
+				else if(mod_wash == MOD_WASH_TWO)
+				{
+					step_wash_valve = 32;			// on valve 10s fourth times
+					time_wash_valve = 0;
+					TRAN = on;
+				}
 			}
 			break;
 		}
@@ -1020,6 +1039,25 @@ void task_reset_mineral()
 			}
 		}
 	}
+}
+
+void PinInterrupt_ISR (void) interrupt 7
+{
+	if(PIF == 0x20)
+	{
+		mod = ~mod;
+	}
+	
+}
+void set_up_interrup_pin()
+{
+	// pin 1.5 interup
+	P15_Input_Mode;
+	set_P1S_5;
+	Enable_INT_Port1;
+	Enable_BIT5_FallEdge_Trig;
+	set_EPI;
+	set_EA;
 }
 
 

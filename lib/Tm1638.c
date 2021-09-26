@@ -328,7 +328,22 @@ void show_led_light()
 
 void show_led_tsd_first_time()
 {
-	
+	STB = LOW;
+	shiftOut_phung(0xC0,LSB);
+	shiftOut_phung(0x40,LSB);
+	shiftOut_phung(0x00,LSB);
+	shiftOut_phung(0x40,LSB);
+	shiftOut_phung(0x00,LSB);
+	shiftOut_phung(0x40,LSB);
+	shiftOut_phung(0x00,LSB);	
+	shiftOut_phung(0x40,LSB);
+	shiftOut_phung(0x00,LSB);
+	shiftOut_phung(0x40,LSB);
+	shiftOut_phung(0x00,LSB);
+	shiftOut_phung(0x40,LSB);
+	shiftOut_phung(0x00,LSB);
+	shiftOut_phung(0x00,LSB);
+	STB = HIGH;
 }
 
 void test_tm1638_led(char value)
